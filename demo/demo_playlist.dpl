@@ -1,0 +1,38 @@
+/*
+Demo playlist
+
+Point your browser or streaming client to:
+
+http://<host>:<port>/bach/cello_suite1
+
+From Bach's Cello Suite No.1 in G major
+
+Prelude
+Menuet I
+Menuet II
+
+Performed by Colin Carr
+
+License: Public Domain
+
+https://musopen.org/music/2386/johann-sebastian-bach/cello-suite-no-1-in-g-bwv-1007/
+*/
+{
+	"/bach/cello_suite1" : [
+		{
+			"artist" : "Johann Sebastian Bach",
+			"title"  : "Prelude",
+			"path"   : "demo/bach_cello_suite1_prelude.mp3"
+		},
+		{
+			"artist" : "Johann Sebastian Bach",
+			"title"  : "Menuet I",
+			"path"   : "demo/bach_cello_suite1_menuet1.mp3"
+		},
+		{
+			"artist" : "Johann Sebastian Bach",
+			"title"  : "Menuet II",
+			"path"   : "demo/bach_cello_suite1_menuet2.mp3"
+		}
+	]
+}
