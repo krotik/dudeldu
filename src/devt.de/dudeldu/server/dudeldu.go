@@ -78,6 +78,7 @@ func main() {
 
 	print(fmt.Sprintf("DudelDu %v.%v", version.VERSION, version.REV))
 
+	auth := flag.String("auth", "", "Authentication as <user>:<pass>")
 	serverHost := flag.String("host", DefaultConfig[ServerHost].(string), "Server hostname to listen on")
 	serverPort := flag.String("port", DefaultConfig[ServerPort].(string), "Server port to listen on")
 	threadPoolSize := flag.Int("tps", DefaultConfig[ThreadPoolSize].(int), "Thread pool size")
@@ -108,6 +109,9 @@ func main() {
 	print(fmt.Sprintf("Frame queue size: %v", *frameQueueSize))
 	print(fmt.Sprintf("Loop playlist: %v", *loopPlaylist))
 	print(fmt.Sprintf("Shuffle playlist: %v", *shufflePlaylist))
+	if *auth != "" {
+		print(fmt.Sprintf("Required authentication: %v", *auth))
+	}
 
 	// Create server and listen
 
@@ -115,7 +119,7 @@ func main() {
 
 	if err == nil {
 
-		rh := dudeldu.NewDefaultRequestHandler(plf, *loopPlaylist, *shufflePlaylist)
+		rh := dudeldu.NewDefaultRequestHandler(plf, *loopPlaylist, *shufflePlaylist, *auth)
 		dds = dudeldu.NewServer(rh.HandleRequest)
 
 		defer print("Shutting down")

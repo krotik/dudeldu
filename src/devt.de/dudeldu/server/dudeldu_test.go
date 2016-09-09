@@ -80,12 +80,12 @@ func TestRequestHandlerFilePlaylist(t *testing.T) {
 		return
 	}
 
-	drh := dudeldu.NewDefaultRequestHandler(fac, false, false)
+	drh := dudeldu.NewDefaultRequestHandler(fac, false, false, "")
 	testConn := &testutil.ErrorTestingConnection{}
 	dudeldu.MetaDataInterval = 5
 	playlist.FrameSize = 5
 
-	drh.ServeRequest(testConn, "/testpath", true, 2)
+	drh.ServeRequest(testConn, "/testpath", true, 2, "")
 
 	fmt.Println(out.String())
 
@@ -137,6 +137,8 @@ func TestDudelDuMain(t *testing.T) {
 DudelDu 1.0.0
 Usage of dudeldu [options] <playlist>
   -?	Show this help message
+  -auth string
+    	Authentication as <user>:<pass>
   -debug
     	Enable extra debugging output
   -fqs int
@@ -158,7 +160,7 @@ Usage of dudeldu [options] <playlist>
 
 	ioutil.WriteFile("test.dpl", []byte("{}"), 0644)
 
-	os.Args = []string{"dudeldu", "-port", "-1", "test.dpl"}
+	os.Args = []string{"dudeldu", "-auth", "web:web", "-port", "-1", "test.dpl"}
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	if ret, err := execMain(); err != nil || ret != `
@@ -168,6 +170,7 @@ Thread pool size: 10
 Frame queue size: 10000
 Loop playlist: false
 Shuffle playlist: false
+Required authentication: web:web
 listen tcp: invalid port -1
 Shutting down
 `[1:] {

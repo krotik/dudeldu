@@ -24,6 +24,7 @@ package dudeldu
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -32,6 +33,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"devt.de/common/datautil"
 )
 
 /*
@@ -43,6 +46,12 @@ const MaxRequestSize = 1024
 MetaDataInterval is the data interval in which meta data is send
 */
 var MetaDataInterval uint64 = 65536
+
+/*
+peerNoAuthTimeout is the time in seconds a peer can open new connections without
+sending new authentication information.
+*/
+const peerNoAuthTimeout = 10
 
 /*
 MaxMetaDataSize is the maximum size for meta data (everything over is truncated)
@@ -62,6 +71,12 @@ requestOffsetPattern is the pattern which is used to extract the requested offse
 (i case-insensitive / m multi-line mode: ^ and $ match begin/end line)
 */
 var requestOffsetPattern = regexp.MustCompile("(?im)^Range: bytes=([0-9]+)-.*$")
+
+/*
+requestAuthPattern is the pattern which is used to extract the request authentication
+(i case-insensitive / m multi-line mode: ^ and $ match begin/end line)
+*/
+var requestAuthPattern = regexp.MustCompile("(?im)^Authorization: Basic (\\S+).*$")
 
 /*
 Logger is a function which receives log messages
@@ -84,21 +99,25 @@ DefaultRequestHandler data structure
 type DefaultRequestHandler struct {
 	PlaylistFactory PlaylistFactory // Factory for playlists
 	ServeRequest    func(c net.Conn, path string,
-		metaDataSupport bool, offset int) // Function to serve requests
-	loop      bool // Flag if the playlist should be looped
-	LoopTimes int  // Number of loops -1 loops forever
-	shuffle   bool // Flag if the playlist should be shuffled
+		metaDataSupport bool, offset int, auth string) // Function to serve requests
+	loop      bool               // Flag if the playlist should be looped
+	LoopTimes int                // Number of loops -1 loops forever
+	shuffle   bool               // Flag if the playlist should be shuffled
+	auth      string             // Required (basic) authentication string - may be empty
+	authPeers *datautil.MapCache // Peers which have been authenticated
 }
 
 /*
 NewDefaultRequestHandler creates a new default request handler object.
 */
-func NewDefaultRequestHandler(pf PlaylistFactory, loop bool, shuffle bool) *DefaultRequestHandler {
+func NewDefaultRequestHandler(pf PlaylistFactory, loop bool, shuffle bool, auth string) *DefaultRequestHandler {
 	drh := &DefaultRequestHandler{
 		PlaylistFactory: pf,
 		loop:            loop,
 		LoopTimes:       -1,
 		shuffle:         shuffle,
+		auth:            auth,
+		authPeers:       datautil.NewMapCache(0, peerNoAuthTimeout),
 	}
 	drh.ServeRequest = drh.defaultServeRequest
 	return drh
@@ -159,12 +178,84 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 
 	bufStr := buf.String() + "\r\n\r\n"
 
+	// Determine the remote string
+
+	clientString := "-"
+	if c.RemoteAddr() != nil {
+		clientString, _, _ = net.SplitHostPort(c.RemoteAddr().String())
+	}
+
 	if DebugOutput {
-		Print("Request:", bufStr)
+		Print("Client:", c.RemoteAddr(), " Request:", bufStr)
 	}
 
 	if i := strings.Index(bufStr, "\r\n\r\n"); i >= 0 {
 		bufStr = strings.TrimSpace(bufStr[:i])
+
+		// Check authentication
+
+		auth := ""
+		res := requestAuthPattern.FindStringSubmatch(bufStr)
+		origBufStr, hasAuth := drh.authPeers.Get(clientString)
+
+		if len(res) > 1 {
+
+			// Decode authentication
+
+			b, err := base64.StdEncoding.DecodeString(res[1])
+			if err != nil {
+				drh.writeUnauthorized(c)
+				Print("Invalid request (cannot decode authentication): ", bufStr)
+				return
+			}
+
+			auth = string(b)
+
+			// Authorize request
+
+			if auth != drh.auth && drh.auth != "" {
+
+				if DebugOutput {
+					Print("Wrong authentication:", string(b))
+				}
+
+				drh.writeUnauthorized(c)
+				return
+			}
+
+			// Peer is now authorized store this so it can connect again
+
+			drh.authPeers.Put(clientString, bufStr)
+
+		} else if drh.auth != "" && !hasAuth {
+
+			// No autherization
+
+			if DebugOutput {
+				Print("No authentication found")
+			}
+
+			drh.writeUnauthorized(c)
+			return
+
+		} else if bufStr == "" && hasAuth {
+
+			// Workaround for strange clients like VLC which send first the
+			// authentication then connect again on a different port and just
+			// expect the stream
+
+			bufStr = origBufStr.(string)
+
+			// Get again the authentication
+
+			res = requestAuthPattern.FindStringSubmatch(bufStr)
+
+			if len(res) > 1 {
+				if b, err := base64.StdEncoding.DecodeString(res[1]); err == nil {
+					auth = string(b)
+				}
+			}
+		}
 
 		// Check if the client supports meta data
 
@@ -177,7 +268,7 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 		// Extract offset
 
 		offset := 0
-		res := requestOffsetPattern.FindStringSubmatch(bufStr)
+		res = requestOffsetPattern.FindStringSubmatch(bufStr)
 
 		if len(res) > 1 {
 
@@ -194,7 +285,7 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 
 			// Now serve the request
 
-			drh.ServeRequest(c, res[1], metaDataSupport, offset)
+			drh.ServeRequest(c, res[1], metaDataSupport, offset, auth)
 
 			return
 		}
@@ -206,7 +297,7 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 /*
 defaultServeRequest is called once a request was successfully decoded.
 */
-func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, metaDataSupport bool, offset int) {
+func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, metaDataSupport bool, offset int, auth string) {
 	var err error
 
 	if DebugOutput {
@@ -405,7 +496,16 @@ func (drh *DefaultRequestHandler) writeStreamStartResponse(c net.Conn,
 writeStreamNotFoundResponse writes the not found response to the client.
 */
 func (drh *DefaultRequestHandler) writeStreamNotFoundResponse(c net.Conn) error {
-	_, err := c.Write([]byte("HTTP/1.0 404 Not found\r\n\r\n"))
+	_, err := c.Write([]byte("HTTP/1.1 404 Not found\r\n\r\n"))
+
+	return err
+}
+
+/*
+writeUnauthorized writes the Unauthorized response to the client.
+*/
+func (drh *DefaultRequestHandler) writeUnauthorized(c net.Conn) error {
+	_, err := c.Write([]byte("HTTP/1.1 401 Authorization Required\r\nWWW-Authenticate: Basic realm=\"DudelDu Streaming Server\"\r\n\r\n"))
 
 	return err
 }
