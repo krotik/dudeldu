@@ -9,10 +9,27 @@
  */
 
 /*
-Package playlist contains default playlist implementations.
+Package playlist contains the default playlist implementation.
+
+FilePlaylistFactory
 
 FilePlaylistFactory is a PlaylistFactory which reads its definition from
-a file.
+a file. The definition file is expected to be a JSON encoded datastructure of the form:
+
+	{
+	    <web path> : [
+	        {
+	            "artist" : <artist>
+	            "title"  : <title>
+	            "path"   : <file path>
+	        }
+	    ]
+	}
+
+The web path is the absolute path which may be requested by the streaming
+client (e.g. /foo/bar would be http://myserver:1234/foo/bar).
+The file path is a physical file reachable by the server process. The file
+ending determines the content type which is send to the client.
 */
 package playlist
 
@@ -43,22 +60,7 @@ type FilePlaylistFactory struct {
 
 /*
 NewFilePlaylistFactory creates a new FilePlaylistFactory from a given definition
-file. The definition file is expected to be a JSON encoded datastructure of the form:
-
-{
-	<web path> : [
-		{
-			"artist" : <artist>
-			"title"  : <title>
-			"path"   : <file path>
-		}
-	]
-}
-
-The web path is the absolute path which may be requested by the streaming
-client (e.g. /foo/bar would be http://myserver:1234/foo/bar).
-The file path is a physical file reachable by the server process. The file
-ending determines the content type which is send to the client.
+file.
 */
 func NewFilePlaylistFactory(path string) (*FilePlaylistFactory, error) {
 

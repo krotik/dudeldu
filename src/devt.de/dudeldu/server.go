@@ -8,16 +8,6 @@
  * file, You can obtain one at https://opensource.org/licenses/MIT.
  */
 
-/*
-Package dudeldu contains a shoutcast server implementation.
-
-Server is the main server object which runs a shoutcast server instance.
-
-Using a WaitGroup a client can wait for the start and shutdown of the server.
-Incoming new connections are served with a ConnectionHandler method. The
-default implementation for this is the HandleRequest method of the
-DefaultRequestHandler object.
-*/
 package dudeldu
 
 import (

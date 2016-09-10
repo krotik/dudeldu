@@ -3,7 +3,7 @@ package imageutil
 /*
 Basic1CharMap is a default character map for RenderSymbols.
 
-It only has only uppcase letters, numbers, the underscore and colon.
+It only has uppcase letters, numbers, the underscore and the colon rune.
 */
 var Basic1CharMap = map[rune]string{
 

@@ -8,18 +8,6 @@
  * file, You can obtain one at https://opensource.org/licenses/MIT.
  */
 
-/*
-Package dudeldu contains a shoutcast server implementation.
-
-DefaultRequestHandler is the default request handler implementation for the
-DudelDu server. DefaultRequestHandler has a customizable ServeRequest function.
-ServeRequest is called once a request was successfully decoded.
-
-The default implementation supports sending meta data while streaming audio. The
-metadata implementation is according to:
-
-http://www.smackfu.com/stuff/programming/shoutcast.html
-*/
 package dudeldu
 
 import (
