@@ -15,6 +15,7 @@ Features
 - Supports sending of meta data (sending artist and title to the streaming client).
 - Playlists are simple json files and data files are normal media (e.g. .mp3) files on disk.
 - Can be used as a standalone player or embedded in other Go projects.
+- Supports HTTP basic user authentication.
 
 Getting Started (standalone application)
 ----------------------------------------
