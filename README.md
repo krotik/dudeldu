@@ -11,8 +11,8 @@ DudelDu is a simple audio streaming server using the SHOUTcast protocol.
 
 Features
 --------
-- Supports various streaming clients: <a href="http://www.videolan.org/vlc/download-windows.en_GB.html">VLC</a>, <a href="https://play.google.com/store/apps/details?id=com.tech.streamplayer">Streamer</a>, <a href="https://play.google.com/store/apps/details?id=com.voody.icecast.player">Icecast Player</a>.
-- Supports sending of meta data (sending artist and title to the streaming client)
+- Supports various streaming clients: <a href="http://www.videolan.org/vlc/download-windows.en_GB.html">VLC</a>, <a href="https://play.google.com/store/apps/details?id=net.sourceforge.servestream">ServeStream</a>,  ... and most Icecast clients.
+- Supports sending of meta data (sending artist and title to the streaming client).
 - Playlists are simple json files and data files are normal media (e.g. .mp3) files on disk.
 - Can be used as a standalone player or embedded in other go projects.
 
