@@ -7,6 +7,8 @@ DudelDu is a simple audio streaming server using the SHOUTcast protocol.
 <a href="https://devt.de/nightly/test.dudeldu.html"><img src="https://devt.de/nightly/test.dudeldu.svg" alt="Code coverage"></a>
 <a href="https://goreportcard.com/report/github.com/krotik/dudeldu">
 <img src="https://goreportcard.com/badge/github.com/krotik/dudeldu?style=flat-square" alt="Go Report Card"></a>
+<a href="http://devt.de/docs/pkg/devt.de/dudeldu/">
+<img src="https://devt.de/nightly/godoc_badge.svg" alt="Go Doc"></a>
 </p>
 
 Features
