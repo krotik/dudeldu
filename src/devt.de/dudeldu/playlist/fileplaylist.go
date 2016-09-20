@@ -38,13 +38,34 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"strings"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"devt.de/common/stringutil"
 	"devt.de/dudeldu"
 )
+
+/*
+FileExtContentTypes maps file extensions to content types
+*/
+var FileExtContentTypes = map[string]string{
+	".mp3":  "audio/mpeg",
+	".flac": "audio/flac",
+	".aac":  "audio/x-aac",
+	".mp4a": "audio/mp4",
+	".mp4":  "video/mp4",
+	".nsv":  "video/nsv",
+	".ogg":  "audio/ogg",
+	".spx":  "audio/ogg",
+	".opus": "audio/ogg",
+	".oga":  "audio/ogg",
+	".ogv":  "video/ogg",
+	".weba": "audio/webm",
+	".webm": "video/webm",
+	".axa":  "audio/annodex",
+	".axv":  "video/annodex",
+}
 
 /*
 FrameSize is the frame size which is used by the playlists
@@ -147,12 +168,10 @@ func (fp *FilePlaylist) Name() string {
 ContentType returns the content type of this playlist e.g. audio/mpeg.
 */
 func (fp *FilePlaylist) ContentType() string {
-	c := fp.currentItem()
+	ext := filepath.Ext(fp.currentItem()["path"])
 
-	if strings.HasSuffix(c["path"], ".mp3") {
-		return "audio/mpeg"
-	} else if strings.HasSuffix(c["path"], ".nsv") {
-		return "video/nsv"
+	if ctype, ok := FileExtContentTypes[ext]; ok {
+		return ctype
 	}
 
 	return "audio"
