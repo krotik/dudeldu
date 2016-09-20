@@ -1,6 +1,6 @@
 DudelDu
 =======
-DudelDu is a simple audio streaming server using the SHOUTcast protocol.
+DudelDu is a simple audio/video streaming server using the SHOUTcast protocol.
 
 <p>
 <a href="https://devt.de/build_status.html"><img src="https://devt.de/nightly/build.dudeldu.svg" alt="Build status"></a>
@@ -31,7 +31,7 @@ Running the command without any parameters will give you an overview of all avai
 ```
 http://localhost:9091/bach/cello_suite1
 ```
-The demo includes also a small video in the Nullsoft Streaming Video format (nsv). To see it point a video streaming client (e.g. VLC) to:
+The demo includes also a small video in the [Nullsoft Streaming Video](https://en.wikipedia.org/wiki/Nullsoft_Streaming_Video) format (nsv). To see it point a video streaming client (e.g. VLC) to:
 ```
 http://localhost:9091/trailer/big_buck_bunny
 ```
