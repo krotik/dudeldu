@@ -151,6 +151,8 @@ func (fp *FilePlaylist) ContentType() string {
 
 	if strings.HasSuffix(c["path"], ".mp3") {
 		return "audio/mpeg"
+	} else if strings.HasSuffix(c["path"], ".nsv") {
+		return "video/nsv"
 	}
 
 	return "audio"

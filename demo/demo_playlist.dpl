@@ -34,5 +34,13 @@ https://musopen.org/music/2386/johann-sebastian-bach/cello-suite-no-1-in-g-bwv-1
 			"title"  : "Menuet II",
 			"path"   : "demo/bach_cello_suite1_menuet2.mp3"
 		}
-	]
+	],
+	
+	"/trailer/big_buck_bunny" : [
+		{
+			"artist" : "",
+			"title"  : "Big Buck Bunny",
+			"path"   : "demo/bunny.nsv"
+		}
+	]	
 }

@@ -15,8 +15,8 @@ Features
 --------
 - Supports various streaming clients: <a href="http://www.videolan.org/vlc/download-windows.en_GB.html">VLC</a>, <a href="https://play.google.com/store/apps/details?id=net.sourceforge.servestream">ServeStream</a>,  ... and most Icecast clients.
 - Supports sending of meta data (sending artist and title to the streaming client).
-- Playlists are simple json files and data files are normal media (e.g. .mp3) files on disk.
-- Can be used as a standalone player or embedded in other Go projects.
+- Playlists are simple json files and data files are normal media (e.g. .mp3, .nsv) files on disk.
+- Can be used as a standalone server or embedded in other Go projects.
 - Supports HTTP basic user authentication.
 
 Getting Started (standalone application)
@@ -27,11 +27,15 @@ The server comes with a demo playlist. Extract the files and go into the directo
 ```
 dudeldu.exe demo\demo_playlist.dpl
 ```
-Running the command without any parameters will give you an overview of all available parameters. Point your favourite streaming client or even a browser (Firefox works for me) to the streaming URL:
+Running the command without any parameters will give you an overview of all available parameters. Point your favourite audio streaming client (e.g. VLC) or even a browser (Firefox works for me) to the streaming URL:
 ```
 http://localhost:9091/bach/cello_suite1
 ```
-Note: By default you can only reach it via localhost. Use the -host parameter with a host name or IP address to expose it to external network peers.
+The demo includes also a small video in the Nullsoft Streaming Video format (nsv). To see it point a video streaming client (e.g. VLC) to:
+```
+http://localhost:9091/trailer/big_buck_bunny
+```
+Note: By default you can only reach the streams via localhost. Use the -host parameter with a host name or IP address to expose it to external network peers.
 
 Building DudelDu
 ----------------

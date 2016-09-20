@@ -38,12 +38,12 @@ Test comment
 		{
 			"artist" : "artist2",
 			"title"  : "test2",
-			"path"   : "playlisttest/test2.mp4"
+			"path"   : "playlisttest/test2.nsv"
 		},
 		{
 			"artist" : "artist3",
 			"title"  : "test3",
-			"path"   : "playlisttest/test3.mp3"
+			"path"   : "playlisttest/test3.xyz"
 		}
 	]
 }`
@@ -58,7 +58,7 @@ const testPlaylist2 = `{
 		{
 			"artist" : "artist2",
 			"title"  : "test2",
-			"path"   : "playlisttest/test2.mp4"
+			"path"   : "playlisttest/test2.nsv"
 		},
 		{
 			"artist" : "artist2",
@@ -68,7 +68,7 @@ const testPlaylist2 = `{
 		{
 			"artist" : "artist3",
 			"title"  : "test3",
-			"path"   : "playlisttest/test3.mp3"
+			"path"   : "playlisttest/test3.xyz"
 		}
 	]
 }`
@@ -128,12 +128,12 @@ func TestFilePlaylist(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	err = ioutil.WriteFile(pdir+"/test2.mp4", []byte("456789"), 0644)
+	err = ioutil.WriteFile(pdir+"/test2.nsv", []byte("456789"), 0644)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	err = ioutil.WriteFile(pdir+"/test3.mp3", []byte("AB"), 0644)
+	err = ioutil.WriteFile(pdir+"/test3.xyz", []byte("AB"), 0644)
 	if err != nil {
 		t.Error(err)
 		return
@@ -331,7 +331,7 @@ func TestFilePlaylist(t *testing.T) {
 
 	// Change the last file
 
-	err = ioutil.WriteFile(pdir+"/test3.mp3", []byte("A"), 0644)
+	err = ioutil.WriteFile(pdir+"/test3.xyz", []byte("A"), 0644)
 	if err != nil {
 		t.Error(err)
 		return
@@ -357,8 +357,8 @@ func TestFilePlaylist(t *testing.T) {
 
 	// Check that the content type is unknown
 
-	if pl.ContentType() != "audio" {
-		t.Error("Content type should be unknown not:", pl.ContentType())
+	if pl.ContentType() != "video/nsv" {
+		t.Error("Content type should be nsv not:", pl.ContentType())
 		return
 	}
 
@@ -368,6 +368,11 @@ func TestFilePlaylist(t *testing.T) {
 		return
 	} else if string(frame) != "6789A" {
 		t.Error("Unexpected frame:", string(frame), frame)
+		return
+	}
+
+	if pl.ContentType() != "audio" {
+		t.Error("Content type should be generic not:", pl.ContentType())
 		return
 	}
 
