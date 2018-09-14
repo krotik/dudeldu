@@ -1,5 +1,11 @@
-  language: go
-  go:
-    - "1.10"
-  script:
-    - go test -v ./...
+language: go
+go:
+  - "1.10.x"
+go_import_path: github.com/glaslos/dudeldu
+before_install:
+  - echo -e "machine api.github.com\n  login ${GITHUB_LOGIN}\n  password ${GITHUB_TOKEN}" > ~/.netrc
+  - chmod 600 ~/.netrc
+install:
+  - go get -u golang.org/x/vgo
+script:
+  - vgo test -v ./...
