@@ -29,9 +29,9 @@ import (
 	"log"
 	"os"
 
-	"devt.de/dudeldu"
-	"devt.de/dudeldu/playlist"
-	"devt.de/dudeldu/version"
+	"github.com/krotik/dudeldu"
+	"github.com/krotik/dudeldu/playlist"
+	"github.com/krotik/dudeldu/version"
 )
 
 // Global variables

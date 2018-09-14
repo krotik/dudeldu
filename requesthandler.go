@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"devt.de/common/datautil"
+	"github.com/krotik/dudeldu/common/datautil"
 )
 
 /*

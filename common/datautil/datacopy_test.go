@@ -12,7 +12,7 @@ package datautil
 import (
 	"testing"
 
-	"devt.de/common/testutil"
+	"github.com/krotik/dudeldu/common/testutil"
 )
 
 func TestCopyObject(t *testing.T) {

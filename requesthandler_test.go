@@ -20,7 +20,7 @@ import (
 	"sync"
 	"testing"
 
-	"devt.de/common/testutil"
+	"github.com/krotik/dudeldu/common/testutil"
 )
 
 const testRequest = `

@@ -15,7 +15,7 @@ import (
 	"os"
 	"testing"
 
-	"devt.de/common/fileutil"
+	"github.com/krotik/dudeldu/common/fileutil"
 )
 
 const testdbdir = "test"

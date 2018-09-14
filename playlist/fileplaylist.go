@@ -42,8 +42,8 @@ import (
 	"sync"
 	"time"
 
-	"devt.de/common/stringutil"
-	"devt.de/dudeldu"
+	"github.com/krotik/dudeldu"
+	"github.com/krotik/dudeldu/common/stringutil"
 )
 
 /*

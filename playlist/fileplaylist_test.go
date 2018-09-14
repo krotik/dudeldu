@@ -18,8 +18,8 @@ import (
 	"sync"
 	"testing"
 
-	"devt.de/common/fileutil"
-	"devt.de/dudeldu"
+	"github.com/krotik/dudeldu"
+	"github.com/krotik/dudeldu/common/fileutil"
 )
 
 const pdir = "playlisttest"
