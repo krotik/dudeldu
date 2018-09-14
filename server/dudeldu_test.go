@@ -19,10 +19,10 @@ import (
 	"os"
 	"testing"
 
-	"devt.de/common/fileutil"
-	"devt.de/common/testutil"
-	"devt.de/dudeldu"
-	"devt.de/dudeldu/playlist"
+	"github.com/krotik/dudeldu"
+	"github.com/krotik/dudeldu/common/fileutil"
+	"github.com/krotik/dudeldu/common/testutil"
+	"github.com/krotik/dudeldu/playlist"
 )
 
 const testFilePlaylist = `
@@ -171,7 +171,7 @@ Frame queue size: 10000
 Loop playlist: false
 Shuffle playlist: false
 Required authentication: web:web
-listen tcp: invalid port -1
+listen tcp: address -1: invalid port
 Shutting down
 `[1:] {
 		t.Error("Unexpected output:", ret, err)
