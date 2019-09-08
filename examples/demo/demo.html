@@ -1,0 +1,29 @@
+<html>
+  <head>
+    <title>DudelDu Demo</title>
+  </head>
+  <body>
+      <h1>Audio Demo</h1>
+      <p>Listen to Bach's cello suite as an audio stream.</p>
+      <audio controls>
+        <source src="http://localhost:9091/bach/cello_suite1"></source>
+            Your browser does not support the audio tag.
+      </audio>
+      <p>You can also point a streaming client like 
+      <a href="https://www.videolan.org/vlc">VLC</a> to: 
+      <pre>http://localhost:9091/bach/cello_suite1</pre>
+      
+      <h1>Video Demo</h1>
+      <p>View the Big Buck Bunny trailer as MP4 stream in the browser.</p>
+      <video height="300" controls>
+        <source src="http://localhost:9091/trailer/big_buck_bunny_mp4"></source>
+            Your browser does not support the audio tag.
+      </video>
+      <p>You can also point a streaming client like 
+      <a href="https://www.videolan.org/vlc">VLC</a> to: 
+      <pre>http://localhost:9091/trailer/big_buck_bunny</pre>
+      <p>The format here is 
+      <a href="https://en.wikipedia.org/wiki/Nullsoft_Streaming_Video">
+      NSV (Nullsoft Streaming Video)</a>.
+  </body>
+</html>
