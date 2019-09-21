@@ -14,13 +14,17 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"sync"
 	"testing"
 
 	"devt.de/krotik/common/fileutil"
+	"devt.de/krotik/common/httputil"
 	"devt.de/krotik/dudeldu"
 )
+
+const TESTPORT = ":9092"
 
 const pdir = "playlisttest"
 
@@ -69,6 +73,11 @@ const testPlaylist2 = `{
 			"artist" : "artist3",
 			"title"  : "test3",
 			"path"   : "playlisttest/test3.xyz"
+		},
+		{
+			"artist" : "artist4",
+			"title"  : "test4",
+			"path"   : "http://localhost:9092/songs/song1.mp3"
 		}
 	]
 }`
@@ -104,6 +113,18 @@ func TestMain(m *testing.M) {
 func TestFilePlaylist(t *testing.T) {
 
 	// Set up
+
+	hs, wg := startServer()
+	if hs == nil {
+		return
+	}
+	defer func() {
+		stopServer(hs, wg)
+	}()
+
+	http.HandleFunc("/songs/song1.mp3", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("songdata123"))
+	})
 
 	err := ioutil.WriteFile(pdir+"/test1.json", []byte(testPlaylist), 0644)
 	if err != nil {
@@ -141,13 +162,13 @@ func TestFilePlaylist(t *testing.T) {
 
 	// Load invalid factory
 
-	_, err = NewFilePlaylistFactory(invalidFileName)
+	_, err = NewFilePlaylistFactory(invalidFileName, "")
 	if err == nil {
 		t.Error(err)
 		return
 	}
 
-	_, err = NewFilePlaylistFactory(pdir + "/test1invalid.json")
+	_, err = NewFilePlaylistFactory(pdir+"/test1invalid.json", "")
 	if err.Error() != "invalid character '*' looking for beginning of value" {
 		t.Error(err)
 		return
@@ -155,7 +176,7 @@ func TestFilePlaylist(t *testing.T) {
 
 	// Create playlist factory
 
-	plf, err := NewFilePlaylistFactory(pdir + "/test1.json")
+	plf, err := NewFilePlaylistFactory(pdir+"/test1.json", "")
 	if err != nil {
 		t.Error(err)
 		return
@@ -446,7 +467,7 @@ func TestFilePlaylist(t *testing.T) {
 
 	// Create playlist factory
 
-	plf, err = NewFilePlaylistFactory(pdir + "/test2.json")
+	plf, err = NewFilePlaylistFactory(pdir+"/test2.json", "")
 	if err != nil {
 		t.Error(err)
 		return
@@ -479,17 +500,28 @@ func TestFilePlaylist(t *testing.T) {
 	}
 
 	frame, err = pl2.Frame()
+
+	if err != nil {
+		t.Error(err)
+		return
+	} else if string(frame) != "Asongd" {
+		t.Error("Unexpected frame:", string(frame), frame)
+		return
+	}
+
+	frame, err = pl2.Frame()
+
 	if err != dudeldu.ErrPlaylistEnd {
 		t.Error(err)
 		return
-	} else if string(frame) != "A" {
+	} else if string(frame) != "ata123" {
 		t.Error("Unexpected frame:", string(frame), frame)
 		return
 	}
 
 	// Make sure currentItem does not blow up
 
-	if pl2.Title() != "test3" {
+	if pl2.Title() != "test4" {
 		t.Error("Unexpected result:", pl2.Title())
 		return
 	}
@@ -501,5 +533,48 @@ func TestFilePlaylist(t *testing.T) {
 	if len(pl3.(*FilePlaylist).data) != len(pl2.(*FilePlaylist).data) {
 		t.Error("Length of playlists differ")
 		return
+	}
+}
+
+/*
+Start a HTTP test server.
+*/
+func startServer() (*httputil.HTTPServer, *sync.WaitGroup) {
+	hs := &httputil.HTTPServer{}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go hs.RunHTTPServer(TESTPORT, &wg)
+
+	wg.Wait()
+
+	// Server is started
+
+	if hs.LastError != nil {
+		panic(hs.LastError)
+	}
+
+	return hs, &wg
+}
+
+/*
+Stop a started HTTP test server.
+*/
+func stopServer(hs *httputil.HTTPServer, wg *sync.WaitGroup) {
+
+	if hs.Running == true {
+
+		wg.Add(1)
+
+		// Server is shut down
+
+		hs.Shutdown()
+
+		wg.Wait()
+
+	} else {
+
+		panic("Server was not running as expected")
 	}
 }

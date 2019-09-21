@@ -74,7 +74,7 @@ func TestRequestHandlerFilePlaylist(t *testing.T) {
 	ioutil.WriteFile(pdir+"/test2.mp4", []byte("12345"), 0644)
 	ioutil.WriteFile(pdir+"/test3.mp3", []byte("???!!!&&&$$$"), 0644)
 
-	fac, err := playlist.NewFilePlaylistFactory(pdir + "/test.dpl")
+	fac, err := playlist.NewFilePlaylistFactory(pdir+"/test.dpl", "")
 	if err != nil {
 		t.Error(err)
 		return
@@ -86,8 +86,6 @@ func TestRequestHandlerFilePlaylist(t *testing.T) {
 	playlist.FrameSize = 5
 
 	drh.ServeRequest(testConn, "/testpath", true, 2, "")
-
-	fmt.Println(out.String())
 
 	if testConn.Out.String() != ("ICY 200 OK\r\n" +
 		"Content-Type: audio/mpeg\r\n" +
@@ -149,12 +147,14 @@ Usage of dudeldu [options] <playlist>
     	Loop playlists
   -port string
     	Server port to listen on (default "9091")
+  -pp string
+    	Prefix all paths with a string
   -shuffle
     	Shuffle playlists
   -tps int
     	Thread pool size (default 10)
 ` {
-		t.Error("Unexpected output:", ret, err)
+		t.Error("Unexpected output:", "#"+ret+"#", err)
 		return
 	}
 
@@ -170,6 +170,7 @@ Thread pool size: 10
 Frame queue size: 10000
 Loop playlist: false
 Shuffle playlist: false
+Path prefix: 
 Required authentication: web:web
 listen tcp: invalid port -1
 Shutting down
@@ -180,6 +181,7 @@ Thread pool size: 10
 Frame queue size: 10000
 Loop playlist: false
 Shuffle playlist: false
+Path prefix: 
 Required authentication: web:web
 listen tcp: address -1: invalid port
 Shutting down

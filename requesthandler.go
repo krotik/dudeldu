@@ -12,7 +12,6 @@ package dudeldu
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -59,12 +58,6 @@ requestOffsetPattern is the pattern which is used to extract the requested offse
 (i case-insensitive / m multi-line mode: ^ and $ match begin/end line)
 */
 var requestOffsetPattern = regexp.MustCompile("(?im)^Range: bytes=([0-9]+)-.*$")
-
-/*
-requestAuthPattern is the pattern which is used to extract the request authentication
-(i case-insensitive / m multi-line mode: ^ and $ match begin/end line)
-*/
-var requestAuthPattern = regexp.MustCompile("(?im)^Authorization: Basic (\\S+).*$")
 
 /*
 Print logger method. Using a custom type so it can be customized.
@@ -114,9 +107,7 @@ finishes.
 */
 func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 
-	if DebugOutput {
-		Print("Handling request from: ", c.RemoteAddr())
-	}
+	printDebug("Handling request from: ", c.RemoteAddr())
 
 	defer func() {
 		c.Close()
@@ -129,32 +120,10 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 		return
 	}
 
-	rbuf := make([]byte, 512, 512)
-	var buf bytes.Buffer
-
-	// Decode request
-
-	n, err := c.Read(rbuf)
-
-	for n > 0 || (err != nil && err != io.EOF) {
-
-		// Do some error checking
-
-		if err != nil {
-			Print(err)
-			return
-		} else if buf.Len() > MaxRequestSize {
-			Print("Illegal request: Request is too long")
-			return
-		}
-
-		buf.Write(rbuf[:n])
-
-		if strings.Contains(string(rbuf), "\r\n\r\n") {
-			break
-		}
-
-		n, err = c.Read(rbuf)
+	buf, err := drh.decodeRequestHeader(c)
+	if err != nil {
+		Print(err)
+		return
 	}
 
 	// Add ending sequence in case the client "forgets"
@@ -168,76 +137,19 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 		clientString, _, _ = net.SplitHostPort(c.RemoteAddr().String())
 	}
 
-	if DebugOutput {
-		Print("Client:", c.RemoteAddr(), " Request:", bufStr)
-	}
+	printDebug("Client:", c.RemoteAddr(), " Request:", bufStr)
 
 	if i := strings.Index(bufStr, "\r\n\r\n"); i >= 0 {
+		var auth string
+		var ok bool
+
 		bufStr = strings.TrimSpace(bufStr[:i])
 
 		// Check authentication
 
-		auth := ""
-		res := requestAuthPattern.FindStringSubmatch(bufStr)
-		origBufStr, hasAuth := drh.authPeers.Get(clientString)
-
-		if len(res) > 1 {
-
-			// Decode authentication
-
-			b, err := base64.StdEncoding.DecodeString(res[1])
-			if err != nil {
-				drh.writeUnauthorized(c)
-				Print("Invalid request (cannot decode authentication): ", bufStr)
-				return
-			}
-
-			auth = string(b)
-
-			// Authorize request
-
-			if auth != drh.auth && drh.auth != "" {
-
-				if DebugOutput {
-					Print("Wrong authentication:", string(b))
-				}
-
-				drh.writeUnauthorized(c)
-				return
-			}
-
-			// Peer is now authorized store this so it can connect again
-
-			drh.authPeers.Put(clientString, bufStr)
-
-		} else if drh.auth != "" && !hasAuth {
-
-			// No authorization
-
-			if DebugOutput {
-				Print("No authentication found")
-			}
-
+		if auth, bufStr, ok = drh.checkAuth(bufStr, clientString); !ok {
 			drh.writeUnauthorized(c)
 			return
-
-		} else if bufStr == "" && hasAuth {
-
-			// Workaround for strange clients like VLC which send first the
-			// authentication then connect again on a different port and just
-			// expect the stream
-
-			bufStr = origBufStr.(string)
-
-			// Get again the authentication
-
-			res = requestAuthPattern.FindStringSubmatch(bufStr)
-
-			if len(res) > 1 {
-				if b, err := base64.StdEncoding.DecodeString(res[1]); err == nil {
-					auth = string(b)
-				}
-			}
 		}
 
 		// Check if the client supports meta data
@@ -251,7 +163,7 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 		// Extract offset
 
 		offset := 0
-		res = requestOffsetPattern.FindStringSubmatch(bufStr)
+		res := requestOffsetPattern.FindStringSubmatch(bufStr)
 
 		if len(res) > 1 {
 
@@ -278,14 +190,48 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 }
 
 /*
+decodeRequestHeader decodes the header of an incoming request.
+*/
+func (drh *DefaultRequestHandler) decodeRequestHeader(c net.Conn) (*bytes.Buffer, error) {
+	var buf bytes.Buffer
+
+	rbuf := make([]byte, 512, 512)
+
+	// Decode request
+
+	n, err := c.Read(rbuf)
+
+	for n > 0 || err != nil && err != io.EOF {
+
+		// Do some error checking
+
+		if err != nil {
+			return nil, err
+		} else if buf.Len() > MaxRequestSize {
+			return nil, fmt.Errorf("Illegal request: Request is too long")
+		}
+
+		buf.Write(rbuf[:n])
+
+		if strings.Contains(string(rbuf), "\r\n\r\n") {
+			break
+		}
+
+		n, err = c.Read(rbuf)
+	}
+
+	return &buf, nil
+}
+
+/*
 defaultServeRequest is called once a request was successfully decoded.
 */
 func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, metaDataSupport bool, offset int, auth string) {
+	var writtenBytes uint64
+	var currentPlaying string
 	var err error
 
-	if DebugOutput {
-		Print("Serve request path:", path, " Metadata support:", metaDataSupport, " Offset:", offset)
-	}
+	printDebug("Serve request path:", path, " Metadata support:", metaDataSupport, " Offset:", offset)
 
 	pl := drh.PlaylistFactory.Playlist(path, drh.shuffle)
 	if pl == nil {
@@ -298,13 +244,9 @@ func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, m
 
 	err = drh.writeStreamStartResponse(c, pl.Name(), pl.ContentType(), metaDataSupport)
 
-	clientWritten := 0
-	var writtenBytes uint64
-	currentPlaying := ""
 	frameOffset := offset
 
 	for {
-
 		for !pl.Finished() {
 
 			if DebugOutput {
@@ -312,8 +254,8 @@ func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, m
 
 				if playingString != currentPlaying {
 					currentPlaying = playingString
-					Print("Written bytes: ", writtenBytes)
-					Print("Sending: ", currentPlaying)
+					printDebug("Written bytes: ", writtenBytes)
+					printDebug("Sending: ", currentPlaying)
 				}
 			}
 
@@ -324,90 +266,8 @@ func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, m
 				return
 			}
 
-			frame, err := pl.Frame()
-
-			// Handle offsets
-
-			if frameOffset > 0 && err == nil {
-
-				for frameOffset > len(frame) && err == nil {
-					frameOffset -= len(frame)
-					frame, err = pl.Frame()
-				}
-
-				if err == nil {
-					frame = frame[frameOffset:]
-					frameOffset = 0
-
-					if len(frame) == 0 {
-						frame, err = pl.Frame()
-					}
-				}
-			}
-
-			if frame == nil {
-				if !pl.Finished() {
-					Print(fmt.Sprintf("Empty frame for: %v - %v (Error: %v)", pl.Title(), pl.Artist(), err))
-				}
-				continue
-			} else if err != nil {
-				if err != ErrPlaylistEnd {
-					Print(fmt.Sprintf("Error while retrieving playlist data: %v", err))
-				}
-				err = nil
-			}
-
-			// Check if meta data should be send
-
-			if metaDataSupport && writtenBytes+uint64(len(frame)) >= MetaDataInterval {
-
-				// Write rest data before sending meta data
-
-				preMetaDataLength := MetaDataInterval - writtenBytes
-				if preMetaDataLength > 0 {
-					if err == nil {
-
-						_, err = c.Write(frame[:preMetaDataLength])
-
-						frame = frame[preMetaDataLength:]
-						writtenBytes += preMetaDataLength
-					}
-				}
-
-				if err == nil {
-
-					// Write meta data - no error checking (next write should fail)
-
-					drh.writeStreamMetaData(c, pl)
-
-					// Write rest of the frame
-
-					c.Write(frame)
-					writtenBytes += uint64(len(frame))
-				}
-
-				writtenBytes -= MetaDataInterval
-
-			} else {
-
-				// Just write the frame to the client
-
-				if err == nil {
-
-					clientWritten, _ = c.Write(frame)
-
-					// Abort if the client does not accept more data
-
-					if clientWritten == 0 && len(frame) > 0 {
-						Print(fmt.Sprintf("Could not write to client - closing connection"))
-						return
-					}
-				}
-
-				pl.ReleaseFrame(frame)
-
-				writtenBytes += uint64(len(frame))
-			}
+			frameOffset, writtenBytes, err = drh.writeFrame(c, pl, frameOffset,
+				writtenBytes, metaDataSupport)
 		}
 
 		// Handle looping - do not loop if close returns an error
@@ -422,9 +282,117 @@ func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, m
 		}
 	}
 
-	if DebugOutput {
-		Print("Serve request path:", path, " complete")
+	printDebug("Serve request path:", path, " complete")
+}
+
+/*
+prepareFrame prepares a frame before it can be written to a client.
+*/
+func (drh *DefaultRequestHandler) prepareFrame(c net.Conn, pl Playlist, frameOffset int,
+	writtenBytes uint64, metaDataSupport bool) ([]byte, int, error) {
+
+	frame, err := pl.Frame()
+
+	// Handle offsets
+
+	if frameOffset > 0 && err == nil {
+
+		for frameOffset > len(frame) && err == nil {
+			frameOffset -= len(frame)
+			frame, err = pl.Frame()
+		}
+
+		if err == nil {
+			frame = frame[frameOffset:]
+			frameOffset = 0
+
+			if len(frame) == 0 {
+				frame, err = pl.Frame()
+			}
+		}
 	}
+
+	if frame == nil {
+
+		if !pl.Finished() {
+			Print(fmt.Sprintf("Empty frame for: %v - %v (Error: %v)", pl.Title(), pl.Artist(), err))
+		}
+
+	} else if err != nil {
+
+		if err != ErrPlaylistEnd {
+			Print(fmt.Sprintf("Error while retrieving playlist data: %v", err))
+		}
+
+		err = nil
+	}
+
+	return frame, frameOffset, err
+}
+
+/*
+writeFrame writes a frame to a client.
+*/
+func (drh *DefaultRequestHandler) writeFrame(c net.Conn, pl Playlist, frameOffset int,
+	writtenBytes uint64, metaDataSupport bool) (int, uint64, error) {
+
+	frame, frameOffset, err := drh.prepareFrame(c, pl, frameOffset, writtenBytes, metaDataSupport)
+	if frame == nil {
+		return frameOffset, writtenBytes, err
+	}
+
+	// Check if meta data should be send
+
+	if metaDataSupport && writtenBytes+uint64(len(frame)) >= MetaDataInterval {
+
+		// Write rest data before sending meta data
+
+		if preMetaDataLength := MetaDataInterval - writtenBytes; preMetaDataLength > 0 {
+			if err == nil {
+
+				_, err = c.Write(frame[:preMetaDataLength])
+
+				frame = frame[preMetaDataLength:]
+				writtenBytes += preMetaDataLength
+			}
+		}
+
+		if err == nil {
+
+			// Write meta data - no error checking (next write should fail)
+
+			drh.writeStreamMetaData(c, pl)
+
+			// Write rest of the frame
+
+			c.Write(frame)
+			writtenBytes += uint64(len(frame))
+		}
+
+		writtenBytes -= MetaDataInterval
+
+	} else {
+
+		// Just write the frame to the client
+
+		if err == nil {
+
+			clientWritten, _ := c.Write(frame)
+
+			// Abort if the client does not accept more data
+
+			if clientWritten == 0 && len(frame) > 0 {
+				return frameOffset, writtenBytes,
+					fmt.Errorf("Could not write to client - closing connection")
+			}
+		}
+
+		pl.ReleaseFrame(frame)
+
+		writtenBytes += uint64(len(frame))
+	}
+
+	return frameOffset, writtenBytes, err
 }
 
 /*
@@ -489,4 +457,13 @@ func (drh *DefaultRequestHandler) writeUnauthorized(c net.Conn) error {
 	_, err := c.Write([]byte("HTTP/1.1 401 Authorization Required\r\nWWW-Authenticate: Basic realm=\"DudelDu Streaming Server\"\r\n\r\n"))
 
 	return err
+}
+
+/*
+printDebug will print additional debug output if `DebugOutput` is enabled.
+*/
+func printDebug(v ...interface{}) {
+	if DebugOutput {
+		Print(v...)
+	}
 }

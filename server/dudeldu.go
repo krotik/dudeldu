@@ -49,6 +49,7 @@ const (
 	FrameQueueSize = "FrameQueueSize"
 	ServerPort     = "ServerPort"
 	ServerHost     = "ServerHost"
+	PathPrefix     = "PathPrefix"
 )
 
 /*
@@ -59,6 +60,7 @@ var DefaultConfig = map[string]interface{}{
 	FrameQueueSize: 10000,
 	ServerPort:     "9091",
 	ServerHost:     "127.0.0.1",
+	PathPrefix:     "",
 }
 
 type consolelogger func(v ...interface{})
@@ -92,6 +94,7 @@ func main() {
 	serverPort := flag.String("port", DefaultConfig[ServerPort].(string), "Server port to listen on")
 	threadPoolSize := flag.Int("tps", DefaultConfig[ThreadPoolSize].(int), "Thread pool size")
 	frameQueueSize := flag.Int("fqs", DefaultConfig[FrameQueueSize].(int), "Frame queue size")
+	pathPrefix := flag.String("pp", DefaultConfig[PathPrefix].(string), "Prefix all paths with a string")
 	enableDebug := flag.Bool("debug", false, "Enable extra debugging output")
 	loopPlaylist := flag.Bool("loop", false, "Loop playlists")
 	shufflePlaylist := flag.Bool("shuffle", false, "Shuffle playlists")
@@ -118,13 +121,14 @@ func main() {
 	print(fmt.Sprintf("Frame queue size: %v", *frameQueueSize))
 	print(fmt.Sprintf("Loop playlist: %v", *loopPlaylist))
 	print(fmt.Sprintf("Shuffle playlist: %v", *shufflePlaylist))
+	print(fmt.Sprintf("Path prefix: %v", *pathPrefix))
 	if *auth != "" {
 		print(fmt.Sprintf("Required authentication: %v", *auth))
 	}
 
 	// Create server and listen
 
-	plf, err = playlist.NewFilePlaylistFactory(flag.Arg(0))
+	plf, err = playlist.NewFilePlaylistFactory(flag.Arg(0), *pathPrefix)
 
 	if err == nil {
 

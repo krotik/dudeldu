@@ -37,8 +37,11 @@ The container will have access to the current local directory and all subfolders
 
 DudelDu comes with a demo playlist. After extracting DudelDu switch to the directory `examples/demo`. Run ./run_demo.sh (Linux) or run_demo.bat (Windows) to start the server.
 
-Open a browser and view the `demo.html` in the `examples/demo` directory.
-
+Open a browser and view the `demo.html` in the `examples/demo` directory. To access the demo streams you are prompted for a username and password. The credentials are:
+```
+username: web
+password: web
+```
 You can also point your favourite audio streaming client (e.g. VLC) to the streaming URL:
 ```
 http://localhost:9091/bach/cello_suite1

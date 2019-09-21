@@ -22,7 +22,7 @@ import (
 /*
 ProductVersion is the current version of DudelDu
 */
-const ProductVersion = "1.1.0"
+const ProductVersion = "1.2.1"
 
 /*
 ConnectionHandler is a function to handle new connections

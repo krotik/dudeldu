@@ -1,7 +1,0 @@
-{
-    "BranchName": "172.17.0.2",
-    "EnableReadOnly": false,
-    "LocalFolder": "share",
-    "RPCHost": "172.17.0.2",
-    "RPCPort": "9020"
-}

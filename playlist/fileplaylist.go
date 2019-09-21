@@ -21,22 +21,27 @@ a file. The definition file is expected to be a JSON encoded datastructure of th
 	        {
 	            "artist" : <artist>
 	            "title"  : <title>
-	            "path"   : <file path>
+	            "path"   : <file path / url>
 	        }
 	    ]
 	}
 
 The web path is the absolute path which may be requested by the streaming
 client (e.g. /foo/bar would be http://myserver:1234/foo/bar).
-The file path is a physical file reachable by the server process. The file
-ending determines the content type which is send to the client.
+The path is either a physical file or a web url reachable by the server process.
+The file ending determines the content type which is send to the client.
 */
 package playlist
 
 import (
+	"bytes"
+	"crypto/tls"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -76,14 +81,15 @@ var FrameSize = dudeldu.FrameSize
 FilePlaylistFactory data structure
 */
 type FilePlaylistFactory struct {
-	data map[string][]map[string]string
+	data           map[string][]map[string]string
+	itemPathPrefix string
 }
 
 /*
 NewFilePlaylistFactory creates a new FilePlaylistFactory from a given definition
 file.
 */
-func NewFilePlaylistFactory(path string) (*FilePlaylistFactory, error) {
+func NewFilePlaylistFactory(path string, itemPathPrefix string) (*FilePlaylistFactory, error) {
 
 	// Try to read the playlist file
 
@@ -92,15 +98,24 @@ func NewFilePlaylistFactory(path string) (*FilePlaylistFactory, error) {
 		return nil, err
 	}
 
-	// Strip out comments
-
-	pl = stringutil.StripCStyleComments(pl)
-
 	// Unmarshal json
 
-	ret := &FilePlaylistFactory{}
+	ret := &FilePlaylistFactory{
+		data:           nil,
+		itemPathPrefix: itemPathPrefix,
+	}
 
 	err = json.Unmarshal(pl, &ret.data)
+
+	if err != nil {
+
+		// Try again and strip out comments
+
+		pl = stringutil.StripCStyleComments(pl)
+
+		err = json.Unmarshal(pl, &ret.data)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +143,7 @@ func (fp *FilePlaylistFactory) Playlist(path string, shuffle bool) dudeldu.Playl
 			data = shuffledData
 		}
 
-		return &FilePlaylist{path, 0, data, nil, false,
+		return &FilePlaylist{path, fp.itemPathPrefix, 0, data, nil, false,
 			&sync.Pool{New: func() interface{} { return make([]byte, FrameSize, FrameSize) }}}
 	}
 	return nil
@@ -138,12 +153,13 @@ func (fp *FilePlaylistFactory) Playlist(path string, shuffle bool) dudeldu.Playl
 FilePlaylist data structure
 */
 type FilePlaylist struct {
-	path      string              // Path of this playlist
-	current   int                 // Pointer to the current playing item
-	data      []map[string]string // Playlist items
-	file      *os.File            // Current open file
-	finished  bool                // Flag if this playlist has finished
-	framePool *sync.Pool          // Pool for byte arrays
+	path       string              // Path of this playlist
+	pathPrefix string              // Prefix for all paths
+	current    int                 // Pointer to the current playing item
+	data       []map[string]string // Playlist items
+	stream     io.ReadCloser       // Current open stream
+	finished   bool                // Flag if this playlist has finished
+	framePool  *sync.Pool          // Pool for byte arrays
 }
 
 /*
@@ -202,7 +218,7 @@ func (fp *FilePlaylist) Frame() ([]byte, error) {
 		return nil, dudeldu.ErrPlaylistEnd
 	}
 
-	if fp.file == nil {
+	if fp.stream == nil {
 
 		// Make sure first file is loaded
 
@@ -220,13 +236,12 @@ func (fp *FilePlaylist) Frame() ([]byte, error) {
 
 		for n < len(frame) && err == nil {
 
-			nn, err = fp.file.Read(frame[n:])
-
+			nn, err = fp.stream.Read(frame[n:])
 			n += nn
 
 			// Check if we need to read the next file
 
-			if n < len(frame) {
+			if n < len(frame) || err == io.EOF {
 				err = fp.nextFile()
 			}
 		}
@@ -261,14 +276,16 @@ func (fp *FilePlaylist) Frame() ([]byte, error) {
 nextFile jumps to the next file for the playlist.
 */
 func (fp *FilePlaylist) nextFile() error {
+	var err error
+	var stream io.ReadCloser
 
 	// Except for the first call advance the current pointer
 
-	if fp.file != nil {
+	if fp.stream != nil {
 		fp.current++
 
-		fp.file.Close()
-		fp.file = nil
+		fp.stream.Close()
+		fp.stream = nil
 
 		// Return special error if the end of the playlist has been reached
 
@@ -279,11 +296,32 @@ func (fp *FilePlaylist) nextFile() error {
 
 	// Check if a file is already open
 
-	if fp.file == nil {
+	if fp.stream == nil {
 
-		// Open a new file
+		item := fp.pathPrefix + fp.currentItem()["path"]
 
-		f, err := os.Open(fp.currentItem()["path"])
+		if _, err = url.ParseRequestURI(item); err == nil {
+			var resp *http.Response
+
+			// We got an url - access it without SSL verification
+
+			client := &http.Client{Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}}
+
+			if resp, err = client.Get(item); err == nil {
+				buf := &StreamBuffer{}
+				buf.ReadFrom(resp.Body)
+				stream = buf
+			}
+
+		} else {
+
+			// Open a new file
+
+			stream, err = os.Open(item)
+		}
+
 		if err != nil {
 
 			// Jump to the next file if there is an error
@@ -293,10 +331,10 @@ func (fp *FilePlaylist) nextFile() error {
 			return err
 		}
 
-		fp.file = f
+		fp.stream = stream
 	}
 
-	return nil
+	return err
 }
 
 /*
@@ -320,12 +358,68 @@ Close any open files by this playlist and reset the current pointer. After this
 call the playlist can be played again.
 */
 func (fp *FilePlaylist) Close() error {
-	if fp.file != nil {
-		fp.file.Close()
-		fp.file = nil
+	if fp.stream != nil {
+		fp.stream.Close()
+		fp.stream = nil
 	}
 	fp.current = 0
 	fp.finished = false
+
+	return nil
+}
+
+/*
+StreamBuffer is a buffer which implements io.ReadCloser and can be used to stream
+one stream into another. The buffer detects a potential underflow and waits
+until enough bytes were read from the source stream.
+*/
+type StreamBuffer struct {
+	bytes.Buffer    // Buffer which is used to hold the data
+	readFromOngoing bool
+}
+
+func (b *StreamBuffer) Read(p []byte) (int, error) {
+
+	if b.readFromOngoing && b.Buffer.Len() < len(p) {
+
+		// Prevent buffer underflow and wait until we got enough data for
+		// the next read
+
+		time.Sleep(10 * time.Millisecond)
+		return b.Read(p)
+	}
+
+	n, err := b.Buffer.Read(p)
+
+	// Return EOF if the buffer is empty
+
+	if err == nil {
+		if _, err = b.ReadByte(); err == nil {
+			b.UnreadByte()
+		}
+	}
+
+	return n, err
+}
+
+/*
+ReadFrom reads the source stream into the buffer.
+*/
+func (b *StreamBuffer) ReadFrom(r io.Reader) (int64, error) {
+	b.readFromOngoing = true
+	go func() {
+		b.Buffer.ReadFrom(r)
+		b.readFromOngoing = false
+	}()
+	return 0, nil
+}
+
+/*
+Close does nothing but must be there to implement io.ReadCloser.
+*/
+func (b *StreamBuffer) Close() error {
+
+	// We are in memory so no need to close anything
 
 	return nil
 }

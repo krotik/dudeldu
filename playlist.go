@@ -8,38 +8,6 @@
  * file, You can obtain one at https://opensource.org/licenses/MIT.
  */
 
-/*
-Package dudeldu is a simple audio streaming server using the SHOUTcast protocol.
-
-Server
-
-Server is the main server object which runs a shoutcast server instance.
-
-Using a WaitGroup a client can wait for the start and shutdown of the server.
-Incoming new connections are served with a ConnectionHandler method. The
-default implementation for this is the HandleRequest method of the
-DefaultRequestHandler object.
-
-DefaultRequestHandler
-
-DefaultRequestHandler is the default request handler implementation for the
-DudelDu server. DefaultRequestHandler has a customizable ServeRequest function.
-ServeRequest is called once a request was successfully decoded.
-
-The default implementation supports sending meta data while streaming audio. The
-metadata implementation is according to:
-
-http://www.smackfu.com/stuff/programming/shoutcast.html
-
-Playlists
-
-Playlists provide the data which is send to the client. A simple implementation
-will just read .mp3 files and send them in chunks (via the Frame() method) to
-the client.
-
-A request handler uses a PlaylistFactory to produce a Playlist for each new
-connection.
-*/
 package dudeldu
 
 import "errors"
