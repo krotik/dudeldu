@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net"
 	"regexp"
@@ -60,16 +59,6 @@ requestOffsetPattern is the pattern which is used to extract the requested offse
 var requestOffsetPattern = regexp.MustCompile("(?im)^Range: bytes=([0-9]+)-.*$")
 
 /*
-Print logger method. Using a custom type so it can be customized.
-*/
-var Print = log.Print
-
-/*
-DebugOutput is a flag to enable additional debugging output
-*/
-var DebugOutput = false
-
-/*
 DefaultRequestHandler data structure
 */
 type DefaultRequestHandler struct {
@@ -81,12 +70,15 @@ type DefaultRequestHandler struct {
 	shuffle   bool               // Flag if the playlist should be shuffled
 	auth      string             // Required (basic) authentication string - may be empty
 	authPeers *datautil.MapCache // Peers which have been authenticated
+	logger    DebugLogger        // Logger for debug output
 }
 
 /*
 NewDefaultRequestHandler creates a new default request handler object.
 */
-func NewDefaultRequestHandler(pf PlaylistFactory, loop bool, shuffle bool, auth string) *DefaultRequestHandler {
+func NewDefaultRequestHandler(pf PlaylistFactory, loop bool,
+	shuffle bool, auth string) *DefaultRequestHandler {
+
 	drh := &DefaultRequestHandler{
 		PlaylistFactory: pf,
 		loop:            loop,
@@ -94,9 +86,17 @@ func NewDefaultRequestHandler(pf PlaylistFactory, loop bool, shuffle bool, auth 
 		shuffle:         shuffle,
 		auth:            auth,
 		authPeers:       datautil.NewMapCache(0, peerNoAuthTimeout),
+		logger:          nil,
 	}
 	drh.ServeRequest = drh.defaultServeRequest
 	return drh
+}
+
+/*
+SetDebugLogger sets the debug logger for this request handler.
+*/
+func (drh *DefaultRequestHandler) SetDebugLogger(logger DebugLogger) {
+	drh.logger = logger
 }
 
 /*
@@ -107,7 +107,7 @@ finishes.
 */
 func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 
-	printDebug("Handling request from: ", c.RemoteAddr())
+	drh.logger.PrintDebug("Handling request from: ", c.RemoteAddr())
 
 	defer func() {
 		c.Close()
@@ -116,13 +116,13 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 	// Check if there was an error
 
 	if nerr != nil {
-		Print(nerr)
+		drh.logger.PrintDebug(nerr)
 		return
 	}
 
 	buf, err := drh.decodeRequestHeader(c)
 	if err != nil {
-		Print(err)
+		drh.logger.PrintDebug(err)
 		return
 	}
 
@@ -137,7 +137,7 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 		clientString, _, _ = net.SplitHostPort(c.RemoteAddr().String())
 	}
 
-	printDebug("Client:", c.RemoteAddr(), " Request:", bufStr)
+	drh.logger.PrintDebug("Client:", c.RemoteAddr(), " Request:", bufStr)
 
 	if i := strings.Index(bufStr, "\r\n\r\n"); i >= 0 {
 		var auth string
@@ -186,7 +186,7 @@ func (drh *DefaultRequestHandler) HandleRequest(c net.Conn, nerr net.Error) {
 		}
 	}
 
-	Print("Invalid request: ", bufStr)
+	drh.logger.PrintDebug("Invalid request: ", bufStr)
 }
 
 /*
@@ -231,7 +231,7 @@ func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, m
 	var currentPlaying string
 	var err error
 
-	printDebug("Serve request path:", path, " Metadata support:", metaDataSupport, " Offset:", offset)
+	drh.logger.PrintDebug("Serve request path:", path, " Metadata support:", metaDataSupport, " Offset:", offset)
 
 	pl := drh.PlaylistFactory.Playlist(path, drh.shuffle)
 	if pl == nil {
@@ -249,20 +249,20 @@ func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, m
 	for {
 		for !pl.Finished() {
 
-			if DebugOutput {
+			if drh.logger.IsDebugOutputEnabled() {
 				playingString := fmt.Sprintf("%v - %v", pl.Title(), pl.Artist())
 
 				if playingString != currentPlaying {
 					currentPlaying = playingString
-					printDebug("Written bytes: ", writtenBytes)
-					printDebug("Sending: ", currentPlaying)
+					drh.logger.PrintDebug("Written bytes: ", writtenBytes)
+					drh.logger.PrintDebug("Sending: ", currentPlaying)
 				}
 			}
 
 			// Check if there were any errors
 
 			if err != nil {
-				Print(err)
+				drh.logger.PrintDebug(err)
 				return
 			}
 
@@ -282,7 +282,7 @@ func (drh *DefaultRequestHandler) defaultServeRequest(c net.Conn, path string, m
 		}
 	}
 
-	printDebug("Serve request path:", path, " complete")
+	drh.logger.PrintDebug("Serve request path:", path, " complete")
 }
 
 /*
@@ -315,13 +315,13 @@ func (drh *DefaultRequestHandler) prepareFrame(c net.Conn, pl Playlist, frameOff
 	if frame == nil {
 
 		if !pl.Finished() {
-			Print(fmt.Sprintf("Empty frame for: %v - %v (Error: %v)", pl.Title(), pl.Artist(), err))
+			drh.logger.PrintDebug(fmt.Sprintf("Empty frame for: %v - %v (Error: %v)", pl.Title(), pl.Artist(), err))
 		}
 
 	} else if err != nil {
 
 		if err != ErrPlaylistEnd {
-			Print(fmt.Sprintf("Error while retrieving playlist data: %v", err))
+			drh.logger.PrintDebug(fmt.Sprintf("Error while retrieving playlist data: %v", err))
 		}
 
 		err = nil
@@ -457,13 +457,4 @@ func (drh *DefaultRequestHandler) writeUnauthorized(c net.Conn) error {
 	_, err := c.Write([]byte("HTTP/1.1 401 Authorization Required\r\nWWW-Authenticate: Basic realm=\"DudelDu Streaming Server\"\r\n\r\n"))
 
 	return err
-}
-
-/*
-printDebug will print additional debug output if `DebugOutput` is enabled.
-*/
-func printDebug(v ...interface{}) {
-	if DebugOutput {
-		Print(v...)
-	}
 }

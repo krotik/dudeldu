@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"testing"
@@ -22,20 +21,31 @@ import (
 
 var testport = "localhost:9090"
 
+type TestDebugLogger struct {
+	DebugOutput bool
+	LogPrint    func(v ...interface{})
+}
+
+func (ds *TestDebugLogger) IsDebugOutputEnabled() bool {
+	return ds.DebugOutput
+}
+
+func (ds *TestDebugLogger) PrintDebug(v ...interface{}) {
+	if ds.DebugOutput {
+		ds.LogPrint(v...)
+	}
+}
+
 func TestServer(t *testing.T) {
 
-	DebugOutput = true
+	// Collect the print output
 
 	var out bytes.Buffer
 
-	// Collect the print output
-	Print = func(v ...interface{}) {
+	debugLogger := &TestDebugLogger{true, func(v ...interface{}) {
 		out.WriteString(fmt.Sprint(v...))
 		out.WriteString("\n")
-	}
-	defer func() {
-		Print = log.Print
-	}()
+	}}
 
 	dds := NewServer(func(c net.Conn, err net.Error) {
 		if err != nil {
@@ -47,6 +57,9 @@ func TestServer(t *testing.T) {
 
 		c.Close()
 	})
+
+	dds.DebugOutput = debugLogger.DebugOutput
+	dds.LogPrint = debugLogger.LogPrint
 
 	var wg sync.WaitGroup
 	wg.Add(1)

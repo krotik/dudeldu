@@ -68,7 +68,7 @@ func (drh *DefaultRequestHandler) checkAuth(bufStr string, clientString string) 
 
 		b, err := base64.StdEncoding.DecodeString(res[1])
 		if err != nil {
-			Print("Invalid request (cannot decode authentication): ", bufStr)
+			drh.logger.PrintDebug("Invalid request (cannot decode authentication): ", bufStr)
 			return auth, bufStr, false
 		}
 
@@ -77,7 +77,7 @@ func (drh *DefaultRequestHandler) checkAuth(bufStr string, clientString string) 
 		// Authorize request
 
 		if auth != drh.auth && drh.auth != "" {
-			printDebug("Wrong authentication:", auth)
+			drh.logger.PrintDebug("Wrong authentication:", auth)
 			return auth, bufStr, false
 		}
 
@@ -89,7 +89,7 @@ func (drh *DefaultRequestHandler) checkAuth(bufStr string, clientString string) 
 
 		// No authorization
 
-		printDebug("No authentication found")
+		drh.logger.PrintDebug("No authentication found")
 		return auth, bufStr, false
 
 	} else if bufStr == "" && hasAuth {

@@ -15,7 +15,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"testing"
 
@@ -51,18 +50,31 @@ Test comment
 
 const pdir = "playlisttest"
 
+type TestDebugLogger struct {
+	DebugOutput bool
+	LogPrint    func(v ...interface{})
+}
+
+func (ds *TestDebugLogger) IsDebugOutputEnabled() bool {
+	return ds.DebugOutput
+}
+
+func (ds *TestDebugLogger) PrintDebug(v ...interface{}) {
+	if ds.DebugOutput {
+		ds.LogPrint(v...)
+	}
+}
+
 func TestRequestHandlerFilePlaylist(t *testing.T) {
+
+	// Collect the print output
 
 	var out bytes.Buffer
 
-	// Collect the print output
-	dudeldu.Print = func(v ...interface{}) {
+	debugLogger := &TestDebugLogger{true, func(v ...interface{}) {
 		out.WriteString(fmt.Sprint(v...))
 		out.WriteString("\n")
-	}
-	defer func() {
-		dudeldu.Print = log.Print
-	}()
+	}}
 
 	os.Mkdir(pdir, 0770)
 	defer func() {
@@ -81,6 +93,7 @@ func TestRequestHandlerFilePlaylist(t *testing.T) {
 	}
 
 	drh := dudeldu.NewDefaultRequestHandler(fac, false, false, "")
+	drh.SetDebugLogger(debugLogger)
 	testConn := &testutil.ErrorTestingConnection{}
 	dudeldu.MetaDataInterval = 5
 	playlist.FrameSize = 5
@@ -153,6 +166,8 @@ Usage of dudeldu [options] <playlist>
     	Shuffle playlists
   -tps int
     	Thread pool size (default 10)
+
+Authentication can also be defined via the environment variable: DUDELDU_AUTH="<user>:<pass>"
 ` {
 		t.Error("Unexpected output:", "#"+ret+"#", err)
 		return
@@ -160,7 +175,14 @@ Usage of dudeldu [options] <playlist>
 
 	ioutil.WriteFile("test.dpl", []byte("{}"), 0644)
 
-	os.Args = []string{"dudeldu", "-auth", "web:web", "-port", "-1", "test.dpl"}
+	lookupEnv = func(key string) (string, bool) {
+		if key == "DUDELDU_AUTH" {
+			return "web:web", true
+		}
+		return "", false
+	}
+
+	os.Args = []string{"dudeldu", "-port", "-1", "test.dpl"}
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	if ret, err := execMain(); err != nil || ret != `

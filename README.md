@@ -55,7 +55,7 @@ Note: By default you can only reach the streams via localhost. Use the -host par
 ### Command line options
 The main DudelDu executable has the following command line options:
 ```
-DudelDu 0.0.0
+DudelDu x.x.x
 Usage of ./dudeldu [options] <playlist>
   -?	Show this help message
   -auth string
@@ -65,15 +65,19 @@ Usage of ./dudeldu [options] <playlist>
   -fqs int
     	Frame queue size (default 10000)
   -host string
-    	Server hostname to listen on (default "localhost")
+    	Server hostname to listen on (default "127.0.0.1")
   -loop
     	Loop playlists
   -port string
     	Server port to listen on (default "9091")
+  -pp string
+    	Prefix all paths with a string
   -shuffle
     	Shuffle playlists
   -tps int
     	Thread pool size (default 10)
+
+Authentication can also be defined via the environment variable: DUDELDU_AUTH="<user>:<pass>"
 ```
 
 Building DudelDu

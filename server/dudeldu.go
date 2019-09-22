@@ -75,6 +75,8 @@ var print = consolelogger(func(a ...interface{}) {
 	fmt.Fprint(os.Stderr, "\n")
 })
 
+var lookupEnv func(string) (string, bool) = os.LookupEnv
+
 /*
 DudelDu server instance (used by unit tests)
 */
@@ -103,6 +105,8 @@ func main() {
 	flag.Usage = func() {
 		print(fmt.Sprintf("Usage of %s [options] <playlist>", os.Args[0]))
 		flag.PrintDefaults()
+		print()
+		print(fmt.Sprint("Authentication can also be defined via the environment variable: DUDELDU_AUTH=\"<user>:<pass>\""))
 	}
 
 	flag.Parse()
@@ -112,7 +116,11 @@ func main() {
 		return
 	}
 
-	dudeldu.DebugOutput = *enableDebug
+	// Check for auth environment variable
+
+	if envAuth, ok := lookupEnv("DUDELDU_AUTH"); ok && *auth == "" {
+		*auth = envAuth
+	}
 
 	laddr := fmt.Sprintf("%v:%v", *serverHost, *serverPort)
 
@@ -134,6 +142,9 @@ func main() {
 
 		rh := dudeldu.NewDefaultRequestHandler(plf, *loopPlaylist, *shufflePlaylist, *auth)
 		dds = dudeldu.NewServer(rh.HandleRequest)
+		dds.DebugOutput = *enableDebug
+
+		rh.SetDebugLogger(dds)
 
 		defer print("Shutting down")
 

@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"sync"
@@ -151,20 +150,17 @@ func (tp *testPlaylist) Close() error {
 
 func TestRequestServing(t *testing.T) {
 
-	DebugOutput = true
+	// Collect the print output
 
 	var out bytes.Buffer
 
-	// Collect the print output
-	Print = func(v ...interface{}) {
+	debugLogger := &TestDebugLogger{true, func(v ...interface{}) {
 		out.WriteString(fmt.Sprint(v...))
 		out.WriteString("\n")
-	}
-	defer func() {
-		Print = log.Print
-	}()
+	}}
 
 	drh := NewDefaultRequestHandler(&testPlaylistFactory{}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
 	testConn := &testutil.ErrorTestingConnection{}
 
 	// Test a path not found
@@ -182,6 +178,8 @@ func TestRequestServing(t *testing.T) {
 		[][]byte{[]byte("12"), nil, []byte("3")},
 		[]error{nil, nil, errors.New("TestError")},
 		0}}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 
 	out.Reset()
@@ -218,6 +216,8 @@ func TestRequestServing(t *testing.T) {
 
 	tpl := &testPlaylist{[][]byte{[]byte("123"), []byte("4567"), []byte("0123"), []byte("456789")}, nil, 0}
 	drh = NewDefaultRequestHandler(&testPlaylistFactory{tpl}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 
 	drh.defaultServeRequest(testConn, "/testpath", true, 0, "")
@@ -241,6 +241,8 @@ func TestRequestServing(t *testing.T) {
 
 	tpl.fp = 0
 	drh = NewDefaultRequestHandler(&testPlaylistFactory{tpl}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 	testConn.OutErr = 5
 	out.Reset()
@@ -269,6 +271,8 @@ func TestRequestServing(t *testing.T) {
 
 	tpl.fp = 0
 	drh = NewDefaultRequestHandler(&testPlaylistFactory{tpl}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 
 	drh.defaultServeRequest(testConn, "/testpath", true, 0, "")
@@ -294,6 +298,8 @@ func TestRequestServing(t *testing.T) {
 
 	tpl.fp = 0
 	drh = NewDefaultRequestHandler(&testPlaylistFactory{tpl}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 
 	drh.defaultServeRequest(testConn, "/testpath", true, 7, "")
@@ -315,6 +321,8 @@ func TestRequestServing(t *testing.T) {
 
 	tpl.fp = 0
 	drh = NewDefaultRequestHandler(&testPlaylistFactory{tpl}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 
 	drh.defaultServeRequest(testConn, "/testpath", true, 2, "")
@@ -339,6 +347,8 @@ func TestRequestServing(t *testing.T) {
 
 	tpl.fp = 0
 	drh = NewDefaultRequestHandler(&testPlaylistFactory{tpl}, true, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 	drh.LoopTimes = 3
 
@@ -371,6 +381,8 @@ func TestRequestServing(t *testing.T) {
 
 	tpl.fp = 0
 	drh = NewDefaultRequestHandler(&testPlaylistFactory{tpl}, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 	testConn.OutClose = true
 	out.Reset()
@@ -389,20 +401,18 @@ func TestRequestServing(t *testing.T) {
 
 func TestRequestHandling(t *testing.T) {
 
-	DebugOutput = true
+	// Collect the print output
 
 	var out bytes.Buffer
 
-	// Collect the print output
-	Print = func(v ...interface{}) {
+	debugLogger := &TestDebugLogger{true, func(v ...interface{}) {
 		out.WriteString(fmt.Sprint(v...))
 		out.WriteString("\n")
-	}
-	defer func() {
-		Print = log.Print
-	}()
+	}}
 
 	drh := NewDefaultRequestHandler(nil, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn := &testutil.ErrorTestingConnection{}
 
 	// Check normal error return
@@ -465,6 +475,8 @@ func TestRequestHandling(t *testing.T) {
 	// Test auth
 
 	drh = NewDefaultRequestHandler(nil, false, false, "web:web")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 
 	testConn.In.Reset()
@@ -496,6 +508,8 @@ func TestRequestHandling(t *testing.T) {
 	out.Reset()
 
 	drh = NewDefaultRequestHandler(nil, false, false, "web:web2")
+	drh.SetDebugLogger(debugLogger)
+
 	testConn = &testutil.ErrorTestingConnection{}
 
 	testConn.In.Reset()
@@ -515,20 +529,18 @@ func TestRequestHandling(t *testing.T) {
 
 func TestRequestHandler(t *testing.T) {
 
-	DebugOutput = true
+	// Collect the print output
 
 	var out bytes.Buffer
 
-	// Collect the print output
-	Print = func(v ...interface{}) {
+	debugLogger := &TestDebugLogger{true, func(v ...interface{}) {
 		out.WriteString(fmt.Sprint(v...))
 		out.WriteString("\n")
-	}
-	defer func() {
-		Print = log.Print
-	}()
+	}}
 
 	drh := NewDefaultRequestHandler(nil, false, false, "")
+	drh.SetDebugLogger(debugLogger)
+
 	dds := NewServer(drh.HandleRequest)
 
 	var wg sync.WaitGroup

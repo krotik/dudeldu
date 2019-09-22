@@ -11,6 +11,7 @@
 package dudeldu
 
 import (
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -22,7 +23,7 @@ import (
 /*
 ProductVersion is the current version of DudelDu
 */
-const ProductVersion = "1.2.1"
+const ProductVersion = "1.3.0"
 
 /*
 ConnectionHandler is a function to handle new connections
@@ -30,15 +31,33 @@ ConnectionHandler is a function to handle new connections
 type ConnectionHandler func(net.Conn, net.Error)
 
 /*
+DebugLogger is the debug logging interface of the Server
+*/
+type DebugLogger interface {
+
+	/*
+		IsDebugOutputEnabled returns true if debug output is enabled.
+	*/
+	IsDebugOutputEnabled() bool
+
+	/*
+	   PrintDebug will print debug output if `DebugOutput` is enabled.
+	*/
+	PrintDebug(v ...interface{})
+}
+
+/*
 Server data structure
 */
 type Server struct {
-	Running     bool              // Flag indicating if the server is running
-	Handler     ConnectionHandler // Handler function for new  connections
-	signalling  chan os.Signal    // Channel for receiving signals
-	tcpListener *net.TCPListener  // TCP listener which accepts connections
-	serving     bool              // Internal flag indicating if the socket should be served
-	wgStatus    *sync.WaitGroup   // Optional wait group which should be notified once the server has started
+	Running     bool                   // Flag indicating if the server is running
+	Handler     ConnectionHandler      // Handler function for new  connections
+	DebugOutput bool                   // Enable additional debugging output
+	LogPrint    func(v ...interface{}) // Print logger method.
+	signalling  chan os.Signal         // Channel for receiving signals
+	tcpListener *net.TCPListener       // TCP listener which accepts connections
+	serving     bool                   // Internal flag indicating if the socket should be served
+	wgStatus    *sync.WaitGroup        // Optional wait group which should be notified once the server has started
 }
 
 /*
@@ -46,8 +65,26 @@ NewServer creates a new DudelDu server.
 */
 func NewServer(handler ConnectionHandler) *Server {
 	return &Server{
-		Running: false,
-		Handler: handler,
+		Running:     false,
+		Handler:     handler,
+		DebugOutput: false,
+		LogPrint:    log.Print,
+	}
+}
+
+/*
+IsDebugOutputEnabled returns true if debug output is enabled.
+*/
+func (ds *Server) IsDebugOutputEnabled() bool {
+	return ds.DebugOutput
+}
+
+/*
+PrintDebug will print debug output if `DebugOutput` is enabled.
+*/
+func (ds *Server) PrintDebug(v ...interface{}) {
+	if ds.DebugOutput {
+		ds.LogPrint(v...)
 	}
 }
 
@@ -102,8 +139,8 @@ func (ds *Server) Run(laddr string, wgStatus *sync.WaitGroup) error {
 
 		// Listen for shutdown signal
 
-		if DebugOutput {
-			Print("Listen for shutdown signal")
+		if ds.IsDebugOutputEnabled() {
+			ds.PrintDebug("Listen for shutdown signal")
 		}
 
 		signal := <-ds.signalling
